@@ -73,18 +73,19 @@ function post_install {
         fi
     done
 
-    chroot /target
-    mount -a
-    apt install -y cryptsetup-initramfs
-    echo "KEYFILE_PATTERN=/etc/luks/*.keyfile" >> /etc/cryptsetup-initramfs/conf-hook
-    echo "UMASK=0077" >> /etc/initramfs-tools/initramfs.conf
-    mkdir /etc/luks
-    dd if=/dev/urandom of=/etc/luks/boot_os.keyfile bs=512 count=1
-    chmod u=rx,go-rwx /etc/luks
-    chmod u=r,go-rwx /etc/luks/boot_os.keyfile
-    cryptsetup luksAddKey ${DEVP}${n_prt_rootfs} /etc/luks/boot_os.keyfile
+    chroot /target mount -a
+    chroot /target apt install -y cryptsetup-initramfs
+    chroot /target bash -c "echo KEYFILE_PATTERN=/etc/luks/*.keyfile >> /etc/cryptsetup-initramfs/conf-hook"
+    chroot /target bash -c "echo UMASK=0077 >> /etc/initramfs-tools/initramfs.conf"
+    chroot /target mkdir -p /etc/luks
+    chroot /target dd if=/dev/urandom of=/etc/luks/boot_os.keyfile bs=512 count=1
+    chroot /target chmod u=rx,go-rwx /etc/luks
+    chroot /target chmod u=r,go-rwx /etc/luks/boot_os.keyfile
+    chroot /target cryptsetup luksAddKey "${DEVP}${n_prt_rootfs}" /etc/luks/boot_os.keyfile
 
-    echo "${DM}${n_prt_rootfs}_crypt UUID=$(blkid -s UUID -o value ${DEVP}${n_prt_rootfs}) /etc/luks/boot_os.keyfile luks,discard" >> /etc/crypttab
+    chroot /target bash -c "echo '${DM}${n_prt_rootfs}_crypt UUID=$(blkid -s UUID -o value ${DEVP}${n_prt_rootfs}) /etc/luks/boot_os.keyfile luks,discard' >> /etc/crypttab"
 
-    update-initramfs -u -k all
+    chroot /target update-initramfs -u -k all
 }
+
+
