@@ -17,6 +17,8 @@
 #  Caution: be ready it may close shell on non zero return code under
 #  certain usage circumstances.
 
+PS4="+:\$( basename \"\${0}\" ):\${LINENO}: "
+set -xe
 
 lsblk
 
@@ -89,3 +91,5 @@ function post_install {
 }
 
 
+set +x
+echo "INFO:\$( basename \"\${0}\" ):\${LINENO}: Job done." >&2
