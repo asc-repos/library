@@ -23,6 +23,8 @@ set -xeu
 lsblk
 
 export DEV="/dev/sda"  # /dev/sda  /dev/nvme0n1
+#export DEV="/dev/nvme0n1"  # /dev/sda  /dev/nvme0n1
+
 export DM="${DEV##*/}"
 export DEVP="${DEV}$( if [[ "$DEV" =~ "nvme" ]]; then echo "p"; fi )"
 export DM="${DM}$( if [[ "$DM" =~ "nvme" ]]; then echo "p"; fi )"
@@ -30,8 +32,11 @@ export DM="${DM}$( if [[ "$DM" =~ "nvme" ]]; then echo "p"; fi )"
 export n_prt_grub=5
 export n_prt_rootfs=6
 
+declare -r phys_lv_name="${DM}${n_prt_rootfs}_crypt"
+declare -r dev_for_encrypt="${DEVP}${n_prt_rootfs}"
+
 ###
-##
+##  Actions-functions, one per installation stage.
 #
 
 function pre_install {
@@ -47,11 +52,11 @@ function pre_install {
 
     wipefs -a $DEVP${n_prt_rootfs}
 
-    cryptsetup luksFormat --batch-mode --type=luks1 ${DEVP}${n_prt_rootfs}
-    cryptsetup open ${DEVP}${n_prt_rootfs} ${DM}${n_prt_rootfs}_crypt
+    cryptsetup luksFormat --batch-mode --type=luks1 ${dev_for_encrypt}
+    cryptsetup open ${dev_for_encrypt} ${phys_lv_name}
 
-    pvcreate /dev/mapper/${DM}${n_prt_rootfs}_crypt
-    vgcreate ubuntu-vg /dev/mapper/${DM}${n_prt_rootfs}_crypt
+    pvcreate /dev/mapper/${phys_lv_name}
+    vgcreate ubuntu-vg /dev/mapper/${phys_lv_name}
     lvcreate -l 80%FREE -n root ubuntu-vg
 }
 
@@ -82,9 +87,9 @@ function post_install {
     chroot /target dd if=/dev/urandom of=/etc/luks/boot_os.keyfile bs=512 count=1
     chroot /target chmod u=rx,go-rwx /etc/luks
     chroot /target chmod u=r,go-rwx /etc/luks/boot_os.keyfile
-    chroot /target cryptsetup luksAddKey "${DEVP}${n_prt_rootfs}" /etc/luks/boot_os.keyfile
+    chroot /target cryptsetup luksAddKey "${dev_for_encrypt}" /etc/luks/boot_os.keyfile
 
-    chroot /target bash -c "echo '${DM}${n_prt_rootfs}_crypt UUID=$(blkid -s UUID -o value ${DEVP}${n_prt_rootfs}) /etc/luks/boot_os.keyfile luks,discard' >> /etc/crypttab"
+    chroot /target bash -c "echo '${phys_lv_name} UUID=$(blkid -s UUID -o value ${dev_for_encrypt}) /etc/luks/boot_os.keyfile luks,discard' >> /etc/crypttab"
 
     chroot /target update-initramfs -u -k all
 }
