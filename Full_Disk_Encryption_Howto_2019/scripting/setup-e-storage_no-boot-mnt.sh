@@ -22,7 +22,7 @@ set -xeu
 
 lsblk
 
-export DEV="/dev/nvme0n1"  # /dev/sda
+export DEV="/dev/sda"  # /dev/sda  /dev/nvme0n1
 export DM="${DEV##*/}"
 export DEVP="${DEV}$( if [[ "$DEV" =~ "nvme" ]]; then echo "p"; fi )"
 export DM="${DM}$( if [[ "$DM" =~ "nvme" ]]; then echo "p"; fi )"
@@ -30,12 +30,9 @@ export DM="${DM}$( if [[ "$DM" =~ "nvme" ]]; then echo "p"; fi )"
 export n_prt_grub=5
 export n_prt_rootfs=6
 
-test -e "${DEV}"
-
-sgdisk --print $DEV
-
-
-
+###
+##
+#
 
 function pre_install {
     set -xeu
@@ -92,9 +89,38 @@ function post_install {
     chroot /target update-initramfs -u -k all
 }
 
-#pre_install
-#setup_grub_trap_while_install
-#post_install
+###
+##
+#
+
+declare -r action="$( whiptail \
+    --separate-output \
+    --notags \
+    --radiolist \
+    "Select action:" \
+    25 75 15 \
+    pre_install                     "1 - create partitions "        OFF \
+    setup_grub_trap_while_install   "2 - catch Grub and set it up " OFF \
+    post_install                    "3 - attach FS unlock "         OFF \
+        3>&2 2>&1 1>&3 )"  # This variable contains name of a function to be called later. Here is selector of an action to be called in sync. with external set up process.
+
+test -n "${action}"
+set | egrep --quiet "^${action} ()"  # Check whether the function declared.
+
+if ! whiptail --yesno --defaultno "Execute '${action}' ?" 8 78 ; then
+    set +x
+    echo "INFO:$( basename "${0}" ):${LINENO}: Do nothing. User canceled." >&2
+    exit 0
+fi
+
+###
+##
+#
+
+test -e "${DEV}"
+sgdisk --print $DEV
+
+"${action}"
 
 set +x
-echo "INFO:\$( basename \"\${0}\" ):\${LINENO}: Job done." >&2
+echo "INFO:$( basename "${0}" ):${LINENO}: Job done." >&2
