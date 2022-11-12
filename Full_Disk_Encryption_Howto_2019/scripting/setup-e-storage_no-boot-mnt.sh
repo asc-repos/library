@@ -18,17 +18,19 @@
 #  certain usage circumstances.
 
 PS4="+:\$( basename \"\${0}\" ):\${LINENO}: "
-set -xe
+set -xeu
 
 lsblk
 
-export DEV="/dev/sda"
+export DEV="/dev/nvme0n1"  # /dev/sda
 export DM="${DEV##*/}"
 export DEVP="${DEV}$( if [[ "$DEV" =~ "nvme" ]]; then echo "p"; fi )"
 export DM="${DM}$( if [[ "$DM" =~ "nvme" ]]; then echo "p"; fi )"
 
 export n_prt_grub=5
 export n_prt_rootfs=6
+
+test -e "${DEV}"
 
 sgdisk --print $DEV
 
@@ -90,6 +92,9 @@ function post_install {
     chroot /target update-initramfs -u -k all
 }
 
+#pre_install
+#setup_grub_trap_while_install
+#post_install
 
 set +x
 echo "INFO:\$( basename \"\${0}\" ):\${LINENO}: Job done." >&2
